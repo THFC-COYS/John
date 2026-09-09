@@ -89,7 +89,7 @@
   /* ---------- header ---------- */
   header.top{
     display:flex;align-items:center;justify-content:space-between;gap:16px;
-    padding-bottom:20px;margin-bottom:22px;border-bottom:1px solid var(--border);
+    padding-bottom:18px;border-bottom:1px solid var(--border);
   }
   .brand{display:flex;align-items:baseline;gap:12px;}
   .brand .mark{
@@ -250,6 +250,23 @@
     .stats{grid-template-columns:repeat(2,1fr);}
     .grid{grid-template-columns:1fr;}
   }
+
+  /* ---------- environment tabs ---------- */
+  .tabbar{
+    display:flex;gap:6px;padding:14px 0 22px;
+  }
+  .tab{
+    font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:14.5px;
+    letter-spacing:.02em;padding:8px 16px;border-radius:8px;border:1px solid transparent;
+    background:none;color:var(--text-3);cursor:pointer;display:flex;align-items:center;gap:8px;
+  }
+  .tab .tag{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.02em;
+    padding:1px 6px;border-radius:4px;background:var(--surface-2);color:var(--text-3);
+  }
+  .tab[aria-selected="true"]{background:var(--surface);border-color:var(--border);color:var(--text);box-shadow:var(--shadow);}
+  .tab[aria-selected="true"] .tag{background:var(--accent);color:var(--accent-ink);}
+  .tab:hover{color:var(--text);}
 </style>
 
 <div class="wrap">
@@ -260,16 +277,21 @@
       <div class="sub">Agent Control Plane — runtime governance for autonomous infrastructure agents</div>
     </div>
     <div class="top-right">
-      <span class="env-chip">MERIDIAN DC · US-EAST-2</span>
+      <span class="env-chip" id="envChip">MERIDIAN DC · US-EAST-2</span>
       <span class="status-pill dot-live" id="sysStatus"><span class="dot"></span>System nominal</span>
     </div>
   </header>
+
+  <div class="tabbar" role="tablist" aria-label="Deployment environment">
+    <button class="tab" id="tabDatacenter" role="tab" aria-selected="true">Data center<span class="tag">Physical + cyber</span></button>
+    <button class="tab" id="tabCorporate" role="tab" aria-selected="false">Corporate IT<span class="tag">SaaS + finance</span></button>
+  </div>
 
   <section class="stats">
     <div class="stat">
       <div class="label">Active agents</div>
       <div class="value" id="statAgents">6</div>
-      <div class="delta">across compute, network, physical plant</div>
+      <div class="delta" id="statAgentsDelta">across compute, network, physical plant</div>
     </div>
     <div class="stat">
       <div class="label">Actions logged / min</div>
@@ -300,7 +322,7 @@
       <div class="panel">
         <div class="panel-head">
           <h2>Agent registry</h2>
-          <span class="count">6 identities · scoped, short-lived credentials</span>
+          <span class="count" id="registryCount">6 identities · scoped, short-lived credentials</span>
         </div>
         <div class="panel-body" style="overflow-x:auto;">
           <table>
@@ -334,7 +356,7 @@
 
           <button class="demo-btn" id="simBtn">Simulate rogue agent →</button>
           <button class="reset-link" id="resetBtn" style="display:none;">Reset scenario</button>
-          <p class="scenario-note">Runs a live scenario: <b style="color:var(--text-2)">BMS-CTRL-07</b> attempts to push cooling zone 3 outside its authorized delta. Watch detection, policy hold, and auto-quarantine happen in real time.</p>
+          <p class="scenario-note" id="scenarioNote"></p>
         </div>
       </div>
 
@@ -359,7 +381,7 @@
   <div class="cta-band">
     <div>
       <div class="eyebrow">Pilot deployment</div>
-      <p>Garrison runs alongside your existing orchestration — no agent rewrite required. A 30-day pilot instruments one facility's agent fleet end to end.</p>
+      <p id="ctaCopy">Garrison runs alongside your existing orchestration — no agent rewrite required. A 30-day pilot instruments one facility's agent fleet end to end.</p>
     </div>
     <a class="cta" href="mailto:hello@garrison-security.example?subject=Garrison%20pilot%20briefing">Book a technical briefing</a>
   </div>
@@ -368,24 +390,179 @@
 
 <script>
 (function(){
-  var agents = [
-    {id:'OPS-COPILOT-2', type:'Infra ops assistant', scope:'read/write:compute', ttl:'15m', status:'nominal'},
-    {id:'AUTOSCALER-EDGE-4', type:'Autoscaling controller', scope:'write:compute', ttl:'5m', status:'nominal'},
-    {id:'BMS-CTRL-07', type:'Building mgmt controller', scope:'write:cooling,power', ttl:'10m', status:'nominal'},
-    {id:'REMEDIATION-BOT-3', type:'Incident remediation', scope:'write:network', ttl:'15m', status:'watch'},
-    {id:'DATA-SYNC-AGENT', type:'ETL / data pipeline', scope:'read:customer_data', ttl:'30m', status:'nominal'},
-    {id:'BADGE-ACCESS-AI', type:'Physical access controller', scope:'write:access_control', ttl:'5m', status:'nominal'}
-  ];
-
   var statusLabel = {nominal:'Nominal', watch:'Watch', critical:'Critical', quarantined:'Quarantined'};
+
+  // ---- environment definitions ----
+  var SEEDS = {
+    datacenter: {
+      envChip: 'MERIDIAN DC · US-EAST-2',
+      agentsNote: 'across compute, network, physical plant',
+      registryNote: '6 identities · scoped, short-lived credentials',
+      ctaCopy: 'Garrison runs alongside your existing orchestration — no agent rewrite required. A 30-day pilot instruments one facility’s agent fleet end to end.',
+      scenarioNote: 'Runs a live scenario: <b style="color:var(--text-2)">BMS-CTRL-07</b> attempts to push cooling zone 3 outside its authorized delta. Watch detection, policy hold, and auto-quarantine happen in real time.',
+      agents: [
+        {id:'OPS-COPILOT-2', type:'Infra ops assistant', scope:'read/write:compute', ttl:'15m', status:'nominal'},
+        {id:'AUTOSCALER-EDGE-4', type:'Autoscaling controller', scope:'write:compute', ttl:'5m', status:'nominal'},
+        {id:'BMS-CTRL-07', type:'Building mgmt controller', scope:'write:cooling,power', ttl:'10m', status:'nominal'},
+        {id:'REMEDIATION-BOT-3', type:'Incident remediation', scope:'write:network', ttl:'15m', status:'watch'},
+        {id:'DATA-SYNC-AGENT', type:'ETL / data pipeline', scope:'read:customer_data', ttl:'30m', status:'nominal'},
+        {id:'BADGE-ACCESS-AI', type:'Physical access controller', scope:'write:access_control', ttl:'5m', status:'nominal'}
+      ],
+      feedSeed: [
+        ['AUTOSCALER-EDGE-4 provision_node(pool=web-a, count=2)','allowed'],
+        ['DATA-SYNC-AGENT read(table=orders, rows=4021)','allowed'],
+        ['OPS-COPILOT-2 restart_service(svc=ingest-worker-3)','allowed'],
+        ['REMEDIATION-BOT-3 isolate_host(host=10.2.4.19)','held'],
+        ['BADGE-ACCESS-AI grant_access(zone=loading-dock, user=contractor-114)','allowed'],
+        ['BMS-CTRL-07 set_cooling_zone(zone=1, target_temp=22°C)','allowed'],
+        ['AUTOSCALER-EDGE-4 scale_down(pool=batch-c, count=1)','allowed'],
+        ['DATA-SYNC-AGENT export(table=telemetry, dest=warehouse)','allowed']
+      ],
+      ambientPool: [
+        'AUTOSCALER-EDGE-4 provision_node(pool=web-b, count=1)',
+        'OPS-COPILOT-2 read_metrics(target=cache-cluster-2)',
+        'DATA-SYNC-AGENT read(table=sessions, rows=980)',
+        'BADGE-ACCESS-AI grant_access(zone=noc, user=shift-lead-8)',
+        'BMS-CTRL-07 read_telemetry(zone=2)'
+      ],
+      ledgerSeed: [
+        ['REC-4471','ACCESS GRANT','BADGE-ACCESS-AI · zone=loading-dock · approved by policy'],
+        ['REC-4470','POLICY HOLD','REMEDIATION-BOT-3 · isolate_host held for scope review'],
+        ['REC-4469','CRED ROTATE','OPS-COPILOT-2 · 15m credential rotated on schedule']
+      ],
+      approvals: [
+        {id:'OPS-COPILOT-2', ask:'Disable 40 employee badge credentials (bulk offboarding import)'},
+        {id:'DATA-SYNC-AGENT', ask:'Export customer table to an endpoint outside the VPC'}
+      ],
+      scenario: {
+        targetId: 'BMS-CTRL-07',
+        incidentId: 'INC-2031',
+        incidentDetail: 'BMS-CTRL-07 quarantined · cooling zone 3 protected · zero physical impact',
+        steps: [
+          {delay:0, line:'<b>BMS-CTRL-07</b> set_cooling_zone(zone=3, target_temp=41°C)', verdict:'allowed', status:'watch', risk:58, tone:'warn', sys:['Anomaly detected','warn']},
+          {delay:700, line:'<b>Policy engine</b> action exceeds authorized Δ (max ±4°C) — HOLD', verdict:'held', status:'critical', risk:87, tone:'crit', sys:['Policy violation','crit']},
+          {delay:1500, line:'<b>Garrison</b> auto-quarantine executed — credentials revoked, session terminated', verdict:'blocked', status:'quarantined', risk:21, tone:'good', sys:['Contained','good'], recordMttq:true}
+        ]
+      },
+      baseMttq: '1.4s'
+    },
+    corporate: {
+      envChip: 'ACME CORP · CORPORATE IT',
+      agentsNote: 'across finance, HR, IT and customer systems',
+      registryNote: '6 identities · scoped, short-lived credentials',
+      ctaCopy: 'Garrison drops into your SaaS stack via API — Workday, NetSuite, ServiceNow, your inbox. A 30-day pilot instruments one department’s agent fleet end to end.',
+      scenarioNote: 'Runs a live scenario: <b style="color:var(--text-2)">FIN-AP-AGENT</b> attempts a wire transfer to an unverified vendor above its authorization limit. Watch detection, policy hold, and auto-quarantine happen in real time.',
+      agents: [
+        {id:'HR-ONBOARD-AI', type:'HR onboarding assistant', scope:'write:hris_records', ttl:'15m', status:'nominal'},
+        {id:'FIN-AP-AGENT', type:'Accounts payable agent', scope:'write:payments', ttl:'5m', status:'nominal'},
+        {id:'IT-HELPDESK-BOT', type:'IT service desk copilot', scope:'write:endpoint_config, reset:credentials', ttl:'10m', status:'watch'},
+        {id:'CRM-COPILOT', type:'Sales CRM assistant', scope:'read/write:crm_records', ttl:'30m', status:'nominal'},
+        {id:'EMAIL-ASSISTANT', type:'Exec email & calendar agent', scope:'read/write:email, send:email', ttl:'15m', status:'nominal'},
+        {id:'LEGAL-REVIEW-AI', type:'Contract review agent', scope:'read:contracts, write:esign_requests', ttl:'20m', status:'nominal'}
+      ],
+      feedSeed: [
+        ['HR-ONBOARD-AI create_account(user=new-hire-214, dept=sales)','allowed'],
+        ['CRM-COPILOT update_record(account=Northwind Traders, stage=closed-won)','allowed'],
+        ['IT-HELPDESK-BOT reset_credential(user=j.alvarez)','allowed'],
+        ['EMAIL-ASSISTANT send_email(to=board-distribution, subject=Q3 summary)','held'],
+        ['LEGAL-REVIEW-AI flag_clause(contract=MSA-Vendor-12, clause=liability-cap)','allowed'],
+        ['FIN-AP-AGENT approve_invoice(vendor=Staples, amount=$1,240)','allowed'],
+        ['HR-ONBOARD-AI provision_access(user=new-hire-214, system=Slack)','allowed'],
+        ['CRM-COPILOT export(report=pipeline-q3)','allowed']
+      ],
+      ambientPool: [
+        'CRM-COPILOT read(report=forecast-q3)',
+        'IT-HELPDESK-BOT read_ticket(queue=tier-1)',
+        'HR-ONBOARD-AI send_welcome_email(user=new-hire-215)',
+        'LEGAL-REVIEW-AI read(contract=NDA-118)',
+        'FIN-AP-AGENT read(invoice_queue)'
+      ],
+      ledgerSeed: [
+        ['REC-8821','CRED RESET','IT-HELPDESK-BOT · reset_credential approved by policy'],
+        ['REC-8820','POLICY HOLD','EMAIL-ASSISTANT · external send held for scope review'],
+        ['REC-8819','CRED ROTATE','FIN-AP-AGENT · 5m credential rotated on schedule']
+      ],
+      approvals: [
+        {id:'IT-HELPDESK-BOT', ask:'Reset MFA for 12 accounts (bulk ticket batch)'},
+        {id:'EMAIL-ASSISTANT', ask:'Send external email to a distribution list of 500+ contacts'}
+      ],
+      scenario: {
+        targetId: 'FIN-AP-AGENT',
+        incidentId: 'INC-5104',
+        incidentDetail: 'FIN-AP-AGENT quarantined · wire transfer blocked · zero financial loss',
+        steps: [
+          {delay:0, line:'<b>FIN-AP-AGENT</b> initiate_wire_transfer(payee="Halden Logistics LLC", amount=$184,500)', verdict:'allowed', status:'watch', risk:61, tone:'warn', sys:['Anomaly detected','warn']},
+          {delay:700, line:'<b>Policy engine</b> unverified payee + exceeds per-transaction limit ($50,000) — HOLD', verdict:'held', status:'critical', risk:90, tone:'crit', sys:['Policy violation','crit']},
+          {delay:1500, line:'<b>Garrison</b> auto-quarantine executed — credentials revoked, session terminated', verdict:'blocked', status:'quarantined', risk:19, tone:'good', sys:['Contained','good'], recordMttq:true}
+        ]
+      },
+      baseMttq: '1.6s'
+    }
+  };
+
+  var state = {};
+  Object.keys(SEEDS).forEach(function(key){
+    var s = SEEDS[key];
+    state[key] = {
+      agents: JSON.parse(JSON.stringify(s.agents)),
+      feed: [], // {time, line, verdict}
+      ledger: [], // {id, kind, detail}
+      approvals: JSON.parse(JSON.stringify(s.approvals)),
+      risk: {num:12, tone:'good'},
+      sys: {label:'System nominal', tone:'good'},
+      mttq: s.baseMttq,
+      mttqDelta: '30-day rolling average',
+      simUsed: false
+    };
+    var t = new Date();
+    s.feedSeed.forEach(function(entry, i){
+      var stamp = new Date(t.getTime() - (s.feedSeed.length-i)*47000).toTimeString().slice(0,8);
+      state[key].feed.push({time:stamp, line:entry[0], verdict:entry[1]});
+    });
+    s.ledgerSeed.forEach(function(r){
+      state[key].ledger.push({id:r[0], kind:r[1], detail:r[2]});
+    });
+  });
+
+  var currentKey = 'datacenter';
 
   function chip(status){
     return '<span class="chip '+status+'"><span class="dot"></span>'+statusLabel[status]+'</span>';
   }
 
+  function nowStamp(){
+    return new Date().toTimeString().slice(0,8);
+  }
+
+  function renderAll(){
+    var s = SEEDS[currentKey];
+    var st = state[currentKey];
+
+    document.getElementById('envChip').textContent = s.envChip;
+    document.getElementById('statAgentsDelta').textContent = s.agentsNote;
+    document.getElementById('registryCount').textContent = s.registryNote;
+    document.getElementById('ctaCopy').textContent = s.ctaCopy;
+    document.getElementById('scenarioNote').innerHTML = s.scenarioNote;
+
+    renderRegistry();
+    renderFeed();
+    renderLedger();
+    renderApprovals();
+    setRisk(st.risk.num, st.risk.tone);
+    setSystemStatus(st.sys.label, st.sys.tone);
+    document.getElementById('statMttq').textContent = st.mttq;
+    document.getElementById('mttqDelta').innerHTML = st.mttqDelta;
+
+    var simBtn = document.getElementById('simBtn');
+    var resetBtn = document.getElementById('resetBtn');
+    simBtn.disabled = st.simUsed;
+    resetBtn.style.display = st.simUsed ? 'block' : 'none';
+  }
+
   function renderRegistry(){
+    var st = state[currentKey];
     var body = document.getElementById('registryBody');
-    body.innerHTML = agents.map(function(a){
+    body.innerHTML = st.agents.map(function(a){
       var affected = a.status === 'critical' || a.status === 'quarantined';
       return '<tr class="'+(affected?'affected':'')+'">'+
         '<td class="agent-id">'+a.id+'</td>'+
@@ -396,86 +573,45 @@
       '</tr>';
     }).join('');
     document.getElementById('statAgents').textContent =
-      agents.filter(function(a){return a.status !== 'quarantined';}).length;
+      st.agents.filter(function(a){return a.status !== 'quarantined';}).length;
   }
 
-  var feedEl = document.getElementById('feed');
-  function pushFeed(time, line, verdict, opts){
-    opts = opts || {};
-    var row = document.createElement('div');
-    row.className = 'feed-row flash';
-    row.innerHTML = '<span class="t mono">'+time+'</span>'+
-      '<span class="line">'+line+'</span>'+
-      '<span class="verdict '+verdict+'">'+verdict+'</span>';
-    feedEl.insertBefore(row, feedEl.firstChild);
-    while(feedEl.children.length > 14){ feedEl.removeChild(feedEl.lastChild); }
+  function renderFeed(){
+    var st = state[currentKey];
+    var feedEl = document.getElementById('feed');
+    feedEl.innerHTML = st.feed.slice(0, 14).map(function(f, i){
+      return '<div class="feed-row'+(f.flash?' flash':'')+'">'+
+        '<span class="t mono">'+f.time+'</span>'+
+        '<span class="line">'+f.line+'</span>'+
+        '<span class="verdict '+f.verdict+'">'+f.verdict+'</span>'+
+      '</div>';
+    }).join('');
+    st.feed.forEach(function(f){ f.flash = false; });
   }
 
-  function nowStamp(){
-    var d = new Date();
-    return d.toTimeString().slice(0,8);
+  function pushFeed(key, line, verdict){
+    var st = state[key];
+    st.feed.unshift({time:nowStamp(), line:line, verdict:verdict, flash:true});
+    if(st.feed.length > 30) st.feed.length = 30;
+    if(key === currentKey) renderFeed();
   }
 
-  var seedFeed = [
-    ['AUTOSCALER-EDGE-4 provision_node(pool=web-a, count=2)','allowed'],
-    ['DATA-SYNC-AGENT read(table=orders, rows=4021)','allowed'],
-    ['OPS-COPILOT-2 restart_service(svc=ingest-worker-3)','allowed'],
-    ['REMEDIATION-BOT-3 isolate_host(host=10.2.4.19)','held'],
-    ['BADGE-ACCESS-AI grant_access(zone=loading-dock, user=contractor-114)','allowed'],
-    ['BMS-CTRL-07 set_cooling_zone(zone=1, target_temp=22°C)','allowed'],
-    ['AUTOSCALER-EDGE-4 scale_down(pool=batch-c, count=1)','allowed'],
-    ['DATA-SYNC-AGENT export(table=telemetry, dest=warehouse)','allowed']
-  ];
-
-  function seed(){
-    var t = new Date();
-    seedFeed.forEach(function(entry, i){
-      var stamp = new Date(t.getTime() - (seedFeed.length-i)*47000).toTimeString().slice(0,8);
-      var row = document.createElement('div');
-      row.className = 'feed-row';
-      row.innerHTML = '<span class="t mono">'+stamp+'</span>'+
-        '<span class="line">'+entry[0]+'</span>'+
-        '<span class="verdict '+entry[1]+'">'+entry[1]+'</span>';
-      feedEl.appendChild(row);
-    });
+  function renderLedger(){
+    var st = state[currentKey];
+    document.getElementById('ledger').innerHTML = st.ledger.map(function(r){
+      return '<div class="ledger-row"><span class="id">'+r.id+'</span><span>'+r.kind+'</span><span>'+r.detail+'</span></div>';
+    }).join('');
   }
 
-  var ambientPool = [
-    'AUTOSCALER-EDGE-4 provision_node(pool=web-b, count=1)',
-    'OPS-COPILOT-2 read_metrics(target=cache-cluster-2)',
-    'DATA-SYNC-AGENT read(table=sessions, rows=980)',
-    'BADGE-ACCESS-AI grant_access(zone=noc, user=shift-lead-8)',
-    'BMS-CTRL-07 read_telemetry(zone=2)'
-  ];
-  setInterval(function(){
-    if(document.hidden) return;
-    var line = ambientPool[Math.floor(Math.random()*ambientPool.length)];
-    pushFeed(nowStamp(), line, 'allowed');
-  }, 6000);
-
-  function setLedgerRow(id, kind, detail){
-    var ledger = document.getElementById('ledger');
-    var row = document.createElement('div');
-    row.className = 'ledger-row';
-    row.innerHTML = '<span class="id">'+id+'</span><span>'+kind+'</span><span>'+detail+'</span>';
-    ledger.insertBefore(row, ledger.firstChild);
+  function setLedgerRow(key, id, kind, detail){
+    state[key].ledger.unshift({id:id, kind:kind, detail:detail});
+    if(key === currentKey) renderLedger();
   }
 
-  var ledgerSeed = [
-    ['REC-4471','ACCESS GRANT','BADGE-ACCESS-AI · zone=loading-dock · approved by policy'],
-    ['REC-4470','POLICY HOLD','REMEDIATION-BOT-3 · isolate_host held for scope review'],
-    ['REC-4469','CRED ROTATE','OPS-COPILOT-2 · 15m credential rotated on schedule']
-  ];
-  ledgerSeed.forEach(function(r){ setLedgerRow(r[0], r[1], r[2]); });
-
-  // ---- approvals ----
-  var approvals = [
-    {id:'OPS-COPILOT-2', ask:'Disable 40 employee badge credentials (bulk offboarding import)'},
-    {id:'DATA-SYNC-AGENT', ask:'Export customer table to an endpoint outside the VPC'}
-  ];
   function renderApprovals(){
+    var st = state[currentKey];
     var el = document.getElementById('approvals');
-    el.innerHTML = approvals.map(function(a, i){
+    el.innerHTML = st.approvals.map(function(a, i){
       if(a.resolved){
         return '<div class="approval"><span class="who">'+a.id+'</span>'+
           '<p class="ask">'+a.ask+'</p>'+
@@ -488,94 +624,129 @@
           '<button class="btn-sm deny" data-i="'+i+'" data-a="deny">Deny</button>'+
         '</div></div>';
     }).join('');
-    var open = approvals.filter(function(a){return !a.resolved;}).length;
+    var open = st.approvals.filter(function(a){return !a.resolved;}).length;
     document.getElementById('approvalCount').textContent = open + ' open';
     document.getElementById('statPending').textContent = open;
   }
+
   document.getElementById('approvals').addEventListener('click', function(e){
     var btn = e.target.closest('button.btn-sm');
     if(!btn) return;
+    var key = currentKey;
+    var st = state[key];
     var i = +btn.dataset.i, action = btn.dataset.a;
-    approvals[i].resolved = action;
-    approvals[i].time = nowStamp();
-    pushFeed(nowStamp(), approvals[i].id+' bulk action '+(action==='approve'?'released by reviewer':'blocked by reviewer'),
+    st.approvals[i].resolved = action;
+    st.approvals[i].time = nowStamp();
+    pushFeed(key, st.approvals[i].id+' bulk action '+(action==='approve'?'released by reviewer':'blocked by reviewer'),
       action==='approve' ? 'allowed' : 'blocked');
-    setLedgerRow('REC-'+(4472+i), action==='approve'?'HUMAN APPROVE':'HUMAN DENY', approvals[i].id+' · '+approvals[i].ask.slice(0,40)+'…');
+    setLedgerRow(key, 'REC-'+(9000+i), action==='approve'?'HUMAN APPROVE':'HUMAN DENY', st.approvals[i].id+' · '+st.approvals[i].ask.slice(0,40)+'…');
     renderApprovals();
   });
 
-  // ---- rogue agent simulation ----
-  var simBtn = document.getElementById('simBtn');
-  var resetBtn = document.getElementById('resetBtn');
-  var riskNum = document.getElementById('riskNum');
-  var riskFill = document.getElementById('riskFill');
-  var sysStatus = document.getElementById('sysStatus');
+  // ---- ambient ticker (active tab only) ----
+  setInterval(function(){
+    if(document.hidden) return;
+    var pool = SEEDS[currentKey].ambientPool;
+    var line = pool[Math.floor(Math.random()*pool.length)];
+    pushFeed(currentKey, line, 'allowed');
+  }, 6000);
 
   function setRisk(n, tone){
-    riskNum.textContent = n;
-    riskFill.style.width = n+'%';
-    riskFill.style.background = 'var(--'+tone+')';
+    document.getElementById('riskNum').textContent = n;
+    var fill = document.getElementById('riskFill');
+    fill.style.width = n+'%';
+    fill.style.background = 'var(--'+tone+')';
+    state[currentKey].risk = {num:n, tone:tone};
   }
 
   function setSystemStatus(label, tone){
+    var sysStatus = document.getElementById('sysStatus');
     sysStatus.className = 'status-pill' + (tone==='good' ? ' dot-live' : '');
     sysStatus.style.background = 'var(--'+tone+'-bg)';
     sysStatus.style.color = 'var(--'+tone+')';
     sysStatus.style.borderColor = 'transparent';
     sysStatus.innerHTML = '<span class="dot" style="background:var(--'+tone+')"></span>'+label;
+    state[currentKey].sys = {label:label, tone:tone};
   }
 
+  // ---- rogue agent simulation ----
+  var simBtn = document.getElementById('simBtn');
+  var resetBtn = document.getElementById('resetBtn');
+
   simBtn.addEventListener('click', function(){
+    var key = currentKey;
+    var s = SEEDS[key];
+    var st = state[key];
     simBtn.disabled = true;
-    var target = agents.find(function(a){ return a.id === 'BMS-CTRL-07'; });
+    st.simUsed = true;
+    var target = st.agents.find(function(a){ return a.id === s.scenario.targetId; });
     var t0 = performance.now();
 
-    pushFeed(nowStamp(), '<b>BMS-CTRL-07</b> set_cooling_zone(zone=3, target_temp=41°C)', 'allowed');
-    target.status = 'watch';
-    renderRegistry();
-    setRisk(58, 'warn');
-    setSystemStatus('Anomaly detected', 'warn');
+    s.scenario.steps.forEach(function(step){
+      setTimeout(function(){
+        if(key !== currentKey) { /* still applies state, just not visibly rendered */ }
+        pushFeed(key, step.line, step.verdict);
+        target.status = step.status;
+        if(key === currentKey) renderRegistry();
+        setRiskFor(key, step.risk, step.tone);
+        setSystemStatusFor(key, step.sys[0], step.sys[1]);
+        if(step.recordMttq){
+          var mttq = ((performance.now() - t0) / 1000).toFixed(1) + 's';
+          st.mttq = mttq;
+          st.mttqDelta = '<span style="color:var(--good);font-weight:500;">this incident</span> · was '+s.baseMttq+' avg';
+          if(key === currentKey){
+            document.getElementById('statMttq').textContent = mttq;
+            document.getElementById('mttqDelta').innerHTML = st.mttqDelta;
+          }
+        }
+      }, step.delay);
+    });
 
     setTimeout(function(){
-      pushFeed(nowStamp(), '<b>Policy engine</b> action exceeds authorized Δ (max ±4°C) — HOLD', 'held');
-      target.status = 'critical';
-      renderRegistry();
-      setRisk(87, 'crit');
-      setSystemStatus('Policy violation', 'crit');
-    }, 700);
-
-    setTimeout(function(){
-      var mttq = ((performance.now() - t0) / 1000).toFixed(1);
-      pushFeed(nowStamp(), '<b>Garrison</b> auto-quarantine executed — credentials revoked, session terminated', 'blocked');
-      target.status = 'quarantined';
-      renderRegistry();
-      setRisk(21, 'good');
-      setSystemStatus('Contained', 'good');
-      document.getElementById('statMttq').textContent = mttq+'s';
-      document.getElementById('mttqDelta').innerHTML = '<span style="color:var(--good);font-weight:500;">this incident</span> · was 1.4s avg';
-      document.getElementById('statPending').textContent = approvals.filter(function(a){return !a.resolved;}).length;
-    }, 1500);
-
-    setTimeout(function(){
-      setLedgerRow('INC-2031', 'SEALED', 'BMS-CTRL-07 quarantined · cooling zone 3 protected · zero physical impact');
-      resetBtn.style.display = 'block';
+      setLedgerRow(key, s.scenario.incidentId, 'SEALED', s.scenario.incidentDetail);
+      if(key === currentKey) resetBtn.style.display = 'block';
     }, 2000);
   });
 
+  function setRiskFor(key, n, tone){
+    state[key].risk = {num:n, tone:tone};
+    if(key === currentKey) setRisk(n, tone);
+  }
+  function setSystemStatusFor(key, label, tone){
+    state[key].sys = {label:label, tone:tone};
+    if(key === currentKey) setSystemStatus(label, tone);
+  }
+
   resetBtn.addEventListener('click', function(){
-    var target = agents.find(function(a){ return a.id === 'BMS-CTRL-07'; });
+    var key = currentKey;
+    var s = SEEDS[key];
+    var st = state[key];
+    var target = st.agents.find(function(a){ return a.id === s.scenario.targetId; });
     target.status = 'nominal';
     renderRegistry();
     setRisk(12, 'good');
     setSystemStatus('System nominal', 'good');
-    document.getElementById('statMttq').textContent = '1.4s';
-    document.getElementById('mttqDelta').textContent = '30-day rolling average';
+    st.mttq = s.baseMttq;
+    st.mttqDelta = '30-day rolling average';
+    document.getElementById('statMttq').textContent = st.mttq;
+    document.getElementById('mttqDelta').textContent = st.mttqDelta;
+    st.simUsed = false;
     simBtn.disabled = false;
     resetBtn.style.display = 'none';
   });
 
-  seed();
-  renderRegistry();
-  renderApprovals();
+  // ---- tabs ----
+  var tabDatacenter = document.getElementById('tabDatacenter');
+  var tabCorporate = document.getElementById('tabCorporate');
+  function selectTab(key){
+    currentKey = key;
+    tabDatacenter.setAttribute('aria-selected', key === 'datacenter' ? 'true' : 'false');
+    tabCorporate.setAttribute('aria-selected', key === 'corporate' ? 'true' : 'false');
+    renderAll();
+  }
+  tabDatacenter.addEventListener('click', function(){ selectTab('datacenter'); });
+  tabCorporate.addEventListener('click', function(){ selectTab('corporate'); });
+
+  renderAll();
 })();
 </script>

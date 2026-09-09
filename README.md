@@ -21,6 +21,11 @@ no build step, just open it in a browser. It demonstrates:
 - **Rogue agent simulation** — a live "kill switch" demo: a building-management
   agent attempts an out-of-scope action, gets flagged, held, and
   auto-quarantined, with a real measured time-to-quarantine.
+- **Two environment tabs** — Data Center (physical + cyber, the BMS/cooling
+  scenario above) and Corporate IT (an accounts-payable agent attempting an
+  unverified wire transfer above its authorization limit). Each tab has its
+  own agent registry, activity feed, approvals, and audit ledger, and keeps
+  its own state when you switch away and back.
 - **Pending approvals** — human-in-the-loop dual control for high-risk actions
   (bulk credential revocation, data exports).
 - **Sealed audit ledger** — an immutable-looking record of consequential
