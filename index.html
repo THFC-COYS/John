@@ -152,6 +152,14 @@
   .agent-id{font-family:'IBM Plex Mono',monospace;font-weight:500;}
   .agent-type{color:var(--text-2);font-size:12.5px;}
   .scope{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-2);}
+  .owner{display:flex;flex-direction:column;gap:2px;}
+  .owner .name{font-size:12.5px;color:var(--text);}
+  .owner .dept{font-size:11px;color:var(--text-3);}
+  .shadow-tag{
+    display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;
+    letter-spacing:.03em;text-transform:uppercase;color:var(--warn);margin-top:2px;width:fit-content;
+  }
+  .shadow-tag::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--warn);}
   tr.affected{background:color-mix(in srgb, var(--crit) 6%, transparent);}
 
   .chip{
@@ -348,7 +356,7 @@
         <div class="panel-body" style="overflow-x:auto;">
           <table>
             <thead>
-              <tr><th>Agent</th><th>Function</th><th>Scope</th><th>Credential TTL</th><th>Status</th></tr>
+              <tr><th>Agent</th><th>Function</th><th>Scope</th><th>Owner</th><th>Credential TTL</th><th>Status</th></tr>
             </thead>
             <tbody id="registryBody"></tbody>
           </table>
@@ -430,12 +438,12 @@
       ctaCopy: 'Garrison runs alongside your existing orchestration — no agent rewrite required. A 30-day pilot instruments one facility’s agent fleet end to end.',
       scenarioNote: 'Runs a live scenario: <b style="color:var(--text-2)">BMS-CTRL-07</b> attempts to push cooling zone 3 outside its authorized delta. Watch detection, policy hold, and auto-quarantine happen in real time.',
       agents: [
-        {id:'OPS-COPILOT-2', type:'Infra ops assistant', scope:'read/write:compute', ttl:'15m', status:'nominal'},
-        {id:'AUTOSCALER-EDGE-4', type:'Autoscaling controller', scope:'write:compute', ttl:'5m', status:'nominal'},
-        {id:'BMS-CTRL-07', type:'Building mgmt controller', scope:'write:cooling,power', ttl:'10m', status:'nominal'},
-        {id:'REMEDIATION-BOT-3', type:'Incident remediation', scope:'write:network', ttl:'15m', status:'watch'},
-        {id:'DATA-SYNC-AGENT', type:'ETL / data pipeline', scope:'read:customer_data', ttl:'30m', status:'nominal'},
-        {id:'BADGE-ACCESS-AI', type:'Physical access controller', scope:'write:access_control', ttl:'5m', status:'nominal'}
+        {id:'OPS-COPILOT-2', type:'Infra ops assistant', scope:'read/write:compute', ttl:'15m', status:'nominal', owner:{name:'Platform Engineering', dept:'IT-provisioned'}},
+        {id:'AUTOSCALER-EDGE-4', type:'Autoscaling controller', scope:'write:compute', ttl:'5m', status:'nominal', owner:{name:'Platform Engineering', dept:'IT-provisioned'}},
+        {id:'BMS-CTRL-07', type:'Building mgmt controller', scope:'write:cooling,power', ttl:'10m', status:'nominal', owner:{name:'Facilities Ops', dept:'IT-provisioned'}},
+        {id:'REMEDIATION-BOT-3', type:'Incident remediation', scope:'write:network', ttl:'15m', status:'watch', owner:{name:'SRE Team', dept:'IT-provisioned'}},
+        {id:'DATA-SYNC-AGENT', type:'ETL / data pipeline', scope:'read:customer_data', ttl:'30m', status:'nominal', owner:{name:'Data Platform Team', dept:'IT-provisioned'}},
+        {id:'BADGE-ACCESS-AI', type:'Physical access controller', scope:'write:access_control', ttl:'5m', status:'nominal', owner:{name:'Physical Security Team', dept:'IT-provisioned'}}
       ],
       feedSeed: [
         ['AUTOSCALER-EDGE-4 provision_node(pool=web-a, count=2)','allowed'],
@@ -482,16 +490,16 @@
     corporate: {
       envChip: 'ACME CORP · CORPORATE IT',
       agentsNote: 'across finance, HR, IT and customer systems',
-      registryNote: '6 identities · scoped, short-lived credentials',
+      registryNote: '6 identities · 2 employee-created outside IT (shadow AI)',
       ctaCopy: 'Garrison drops into your SaaS stack via API — Workday, NetSuite, ServiceNow, your inbox. A 30-day pilot instruments one department’s agent fleet end to end.',
       scenarioNote: 'Runs a live scenario: <b style="color:var(--text-2)">FIN-AP-AGENT</b> attempts a wire transfer to an unverified vendor above its authorization limit. Watch detection, policy hold, and auto-quarantine happen in real time.',
       agents: [
-        {id:'HR-ONBOARD-AI', type:'HR onboarding assistant', scope:'write:hris_records', ttl:'15m', status:'nominal'},
-        {id:'FIN-AP-AGENT', type:'Accounts payable agent', scope:'write:payments', ttl:'5m', status:'nominal'},
-        {id:'IT-HELPDESK-BOT', type:'IT service desk copilot', scope:'write:endpoint_config, reset:credentials', ttl:'10m', status:'watch'},
-        {id:'CRM-COPILOT', type:'Sales CRM assistant', scope:'read/write:crm_records', ttl:'30m', status:'nominal'},
-        {id:'EMAIL-ASSISTANT', type:'Exec email & calendar agent', scope:'read/write:email, send:email', ttl:'15m', status:'nominal'},
-        {id:'LEGAL-REVIEW-AI', type:'Contract review agent', scope:'read:contracts, write:esign_requests', ttl:'20m', status:'nominal'}
+        {id:'HR-ONBOARD-AI', type:'HR onboarding assistant', scope:'write:hris_records', ttl:'15m', status:'nominal', owner:{name:'IT Platform Team', dept:'IT-provisioned'}},
+        {id:'FIN-AP-AGENT', type:'Accounts payable agent', scope:'write:payments', ttl:'5m', status:'nominal', owner:{name:'Finance Systems Team', dept:'IT-provisioned'}},
+        {id:'IT-HELPDESK-BOT', type:'IT service desk copilot', scope:'write:endpoint_config, reset:credentials', ttl:'10m', status:'watch', owner:{name:'IT Service Desk', dept:'IT-provisioned'}},
+        {id:'CRM-COPILOT', type:'Sales CRM assistant', scope:'read/write:crm_records', ttl:'30m', status:'nominal', owner:{name:'Marcus Webb', dept:'Sales Ops', shadow:true, shadowNote:'Built via a Zapier + custom-GPT integration wired to Salesforce — never registered with IT.'}},
+        {id:'EMAIL-ASSISTANT', type:'Exec email & calendar agent', scope:'read/write:email, send:email', ttl:'15m', status:'nominal', owner:{name:'Dana Kim', dept:'Chief of Staff', shadow:true, shadowNote:'A personal inbox automation connected to the CEO’s calendar and email — self-provisioned, no security review.'}},
+        {id:'LEGAL-REVIEW-AI', type:'Contract review agent', scope:'read:contracts, write:esign_requests', ttl:'20m', status:'nominal', owner:{name:'Legal Ops Team', dept:'IT-provisioned'}}
       ],
       feedSeed: [
         ['HR-ONBOARD-AI create_account(user=new-hire-214, dept=sales)','allowed'],
@@ -603,10 +611,14 @@
     var body = document.getElementById('registryBody');
     body.innerHTML = st.agents.map(function(a){
       var affected = a.status === 'critical' || a.status === 'quarantined';
+      var ownerCell = '<div class="owner"><span class="name">'+a.owner.name+'</span><span class="dept">'+a.owner.dept+'</span>'+
+        (a.owner.shadow ? '<span class="shadow-tag" title="'+a.owner.shadowNote+'">Shadow AI</span>' : '')+
+        '</div>';
       return '<tr class="'+(affected?'affected':'')+'">'+
         '<td class="agent-id">'+a.id+'</td>'+
         '<td class="agent-type">'+a.type+'</td>'+
         '<td class="scope">'+a.scope+'</td>'+
+        '<td>'+ownerCell+'</td>'+
         '<td class="mono">'+a.ttl+'</td>'+
         '<td>'+chip(a.status)+'</td>'+
       '</tr>';
