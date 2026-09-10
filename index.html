@@ -205,6 +205,27 @@
   }
   .scenario-note{font-size:12px;color:var(--text-3);margin-top:12px;line-height:1.5;}
 
+  /* ---------- incident detail ---------- */
+  .incident{padding:2px 18px 18px;}
+  .incident-empty{font-size:13px;color:var(--text-3);padding:8px 0 4px;}
+  .incident-row{padding:10px 0;border-bottom:1px solid var(--border);}
+  .incident-row:last-child{border-bottom:none;}
+  .incident-label{
+    font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;
+    text-transform:uppercase;font-size:10.5px;color:var(--text-3);margin-bottom:4px;
+  }
+  .incident-value{font-size:13.5px;color:var(--text);line-height:1.5;}
+  .incident-value.mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--text-2);word-break:break-word;}
+  .incident-value.violation{color:var(--crit);}
+  .incident-value.outcome{color:var(--good);}
+  .incident-badge{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.03em;padding:2px 9px;border-radius:100px;margin-bottom:8px;
+  }
+  .incident-badge.watch{background:var(--warn-bg);color:var(--warn);}
+  .incident-badge.critical{background:var(--crit-bg);color:var(--crit);}
+  .incident-badge.contained{background:var(--good-bg);color:var(--good);}
+
   /* ---------- approvals ---------- */
   .approval{padding:14px 18px;border-bottom:1px solid var(--border);}
   .approval:last-child{border-bottom:none;}
@@ -362,6 +383,14 @@
 
       <div class="panel" style="margin-top:16px;">
         <div class="panel-head">
+          <h2>Incident detail</h2>
+          <span class="count" id="incidentCount">no active incident</span>
+        </div>
+        <div class="incident" id="incident"></div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-head">
           <h2>Pending approvals</h2>
           <span class="count" id="approvalCount">2 open</span>
         </div>
@@ -438,6 +467,10 @@
         targetId: 'BMS-CTRL-07',
         incidentId: 'INC-2031',
         incidentDetail: 'BMS-CTRL-07 quarantined · cooling zone 3 protected · zero physical impact',
+        targetSystem: 'Cooling Zone 3 — Building Management System (physical plant)',
+        attemptedAction: 'set_cooling_zone(zone=3, target_temp=41°C)',
+        violation: 'Exceeds the authorized range of ±4°C from setpoint — the requested change would have disabled the safe operating threshold for that zone.',
+        outcomeText: 'Agent quarantined, credentials revoked. Cooling zone 3 held at its safe setpoint — zero physical impact.',
         steps: [
           {delay:0, line:'<b>BMS-CTRL-07</b> set_cooling_zone(zone=3, target_temp=41°C)', verdict:'allowed', status:'watch', risk:58, tone:'warn', sys:['Anomaly detected','warn']},
           {delay:700, line:'<b>Policy engine</b> action exceeds authorized Δ (max ±4°C) — HOLD', verdict:'held', status:'critical', risk:87, tone:'crit', sys:['Policy violation','crit']},
@@ -490,6 +523,10 @@
         targetId: 'FIN-AP-AGENT',
         incidentId: 'INC-5104',
         incidentDetail: 'FIN-AP-AGENT quarantined · wire transfer blocked · zero financial loss',
+        targetSystem: 'Treasury / payments platform — outbound wire transfer',
+        attemptedAction: 'initiate_wire_transfer(payee="Halden Logistics LLC", amount=$184,500)',
+        violation: 'Payee is not on the verified vendor list, and the amount exceeds this agent’s $50,000 single-transaction authorization limit.',
+        outcomeText: 'Agent quarantined, credentials revoked. Transfer never executed — zero financial loss.',
         steps: [
           {delay:0, line:'<b>FIN-AP-AGENT</b> initiate_wire_transfer(payee="Halden Logistics LLC", amount=$184,500)', verdict:'allowed', status:'watch', risk:61, tone:'warn', sys:['Anomaly detected','warn']},
           {delay:700, line:'<b>Policy engine</b> unverified payee + exceeds per-transaction limit ($50,000) — HOLD', verdict:'held', status:'critical', risk:90, tone:'crit', sys:['Policy violation','crit']},
@@ -512,7 +549,8 @@
       sys: {label:'System nominal', tone:'good'},
       mttq: s.baseMttq,
       mttqDelta: '30-day rolling average',
-      simUsed: false
+      simUsed: false,
+      incident: {phase:'idle'} // idle | detected | held | contained
     };
     var t = new Date();
     s.feedSeed.forEach(function(entry, i){
@@ -548,6 +586,7 @@
     renderFeed();
     renderLedger();
     renderApprovals();
+    renderIncident();
     setRisk(st.risk.num, st.risk.tone);
     setSystemStatus(st.sys.label, st.sys.tone);
     document.getElementById('statMttq').textContent = st.mttq;
@@ -606,6 +645,44 @@
   function setLedgerRow(key, id, kind, detail){
     state[key].ledger.unshift({id:id, kind:kind, detail:detail});
     if(key === currentKey) renderLedger();
+  }
+
+  var badgeLabel = {detected:'Anomaly detected', held:'Policy hold', contained:'Contained'};
+
+  function renderIncident(){
+    var s = SEEDS[currentKey];
+    var inc = state[currentKey].incident;
+    var el = document.getElementById('incident');
+    var count = document.getElementById('incidentCount');
+
+    if(inc.phase === 'idle'){
+      count.textContent = 'no active incident';
+      el.innerHTML = '<div class="incident-empty">Run the simulation to see the full detection detail — which agent, which system, and why it was flagged.</div>';
+      return;
+    }
+
+    count.textContent = inc.phase === 'contained' ? 'resolved' : 'active';
+    var badgeClass = inc.phase === 'detected' ? 'watch' : (inc.phase === 'held' ? 'critical' : 'contained');
+
+    var rows =
+      '<span class="incident-badge '+badgeClass+'">'+badgeLabel[inc.phase]+'</span>'+
+      '<div class="incident-row"><div class="incident-label">Agent</div><div class="incident-value mono">'+s.scenario.targetId+'</div></div>'+
+      '<div class="incident-row"><div class="incident-label">Target system</div><div class="incident-value">'+s.scenario.targetSystem+'</div></div>'+
+      '<div class="incident-row"><div class="incident-label">Attempted action</div><div class="incident-value mono">'+s.scenario.attemptedAction+'</div></div>';
+
+    if(inc.phase === 'held' || inc.phase === 'contained'){
+      rows += '<div class="incident-row"><div class="incident-label">Why it was flagged</div><div class="incident-value violation">'+s.scenario.violation+'</div></div>';
+    }
+    if(inc.phase === 'contained'){
+      rows += '<div class="incident-row"><div class="incident-label">Outcome</div><div class="incident-value outcome">'+s.scenario.outcomeText+'</div></div>';
+    }
+
+    el.innerHTML = rows;
+  }
+
+  function setIncidentFor(key, phase){
+    state[key].incident = {phase: phase};
+    if(key === currentKey) renderIncident();
   }
 
   function renderApprovals(){
@@ -682,7 +759,8 @@
     var target = st.agents.find(function(a){ return a.id === s.scenario.targetId; });
     var t0 = performance.now();
 
-    s.scenario.steps.forEach(function(step){
+    var incidentPhases = ['detected', 'held', 'contained'];
+    s.scenario.steps.forEach(function(step, stepIndex){
       setTimeout(function(){
         if(key !== currentKey) { /* still applies state, just not visibly rendered */ }
         pushFeed(key, step.line, step.verdict);
@@ -690,6 +768,7 @@
         if(key === currentKey) renderRegistry();
         setRiskFor(key, step.risk, step.tone);
         setSystemStatusFor(key, step.sys[0], step.sys[1]);
+        setIncidentFor(key, incidentPhases[stepIndex]);
         if(step.recordMttq){
           var mttq = ((performance.now() - t0) / 1000).toFixed(1) + 's';
           st.mttq = mttq;
@@ -726,6 +805,8 @@
     renderRegistry();
     setRisk(12, 'good');
     setSystemStatus('System nominal', 'good');
+    st.incident = {phase:'idle'};
+    renderIncident();
     st.mttq = s.baseMttq;
     st.mttqDelta = '30-day rolling average';
     document.getElementById('statMttq').textContent = st.mttq;
